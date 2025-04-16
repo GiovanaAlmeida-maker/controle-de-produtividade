@@ -1,0 +1,112 @@
+from flask import Flask, jsonify
+import sqlite3
+
+app = Flask(__name__)
+
+# ----------------- Banco de Dados -----------------
+
+def init_db():
+    conn = sqlite3.connect('produtividade.db')
+    cursor = conn.cursor()
+
+    # Criando a tabela de setores
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS setores (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL
+        )
+    ''')
+
+    # Criando a tabela de funcionários
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS funcionarios (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            nome TEXT NOT NULL,
+            setor_id INTEGER,
+            cargo TEXT NOT NULL,
+            FOREIGN KEY(setor_id) REFERENCES setores(id)
+        )
+    ''')
+
+    # Criando a tabela de tarefas
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS tarefas (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            funcionario_id INTEGER,
+            nome TEXT NOT NULL,
+            data TEXT,
+            tempo_gasto INTEGER,
+            FOREIGN KEY(funcionario_id) REFERENCES funcionarios(id)
+        )
+    ''')
+
+    # Inserindo dados fictícios de setores
+    cursor.execute('INSERT INTO setores (nome) VALUES (?)', ("Financeiro",))
+    cursor.execute('INSERT INTO setores (nome) VALUES (?)', ("TI",))
+    cursor.execute('INSERT INTO setores (nome) VALUES (?)', ("Recursos Humanos",))
+
+    # Inserindo dados fictícios de funcionários
+    cursor.execute('INSERT INTO funcionarios (nome, setor_id, cargo) VALUES (?, ?, ?)', ("João Silva", 1, "Analista Financeiro"))
+    cursor.execute('INSERT INTO funcionarios (nome, setor_id, cargo) VALUES (?, ?, ?)', ("Maria Souza", 2, "Desenvolvedora Backend"))
+    cursor.execute('INSERT INTO funcionarios (nome, setor_id, cargo) VALUES (?, ?, ?)', ("Carlos Pereira", 3, "Recrutador"))
+    cursor.execute('INSERT INTO funcionarios (nome, setor_id, cargo) VALUES (?, ?, ?)', ("Ana Lima", 1, "Assistente Administrativo"))
+    cursor.execute('INSERT INTO funcionarios (nome, setor_id, cargo) VALUES (?, ?, ?)', ("Roberto Costa", 2, "Desenvolvedor Frontend"))
+
+    # Inserindo dados fictícios de tarefas
+    cursor.execute('INSERT INTO tarefas (funcionario_id, nome, data, tempo_gasto) VALUES (?, ?, ?, ?)', (1, "Análise de relatórios financeiros", "2025-04-01", 4))
+    cursor.execute('INSERT INTO tarefas (funcionario_id, nome, data, tempo_gasto) VALUES (?, ?, ?, ?)', (2, "Desenvolvimento de API", "2025-04-02", 6))
+    cursor.execute('INSERT INTO tarefas (funcionario_id, nome, data, tempo_gasto) VALUES (?, ?, ?, ?)', (3, "Entrevista com candidato", "2025-04-03", 2))
+    cursor.execute('INSERT INTO tarefas (funcionario_id, nome, data, tempo_gasto) VALUES (?, ?, ?, ?)', (4, "Organização de documentos", "2025-04-01", 3))
+    cursor.execute('INSERT INTO tarefas (funcionario_id, nome, data, tempo_gasto) VALUES (?, ?, ?, ?)', (5, "Desenvolvimento da interface do sistema", "2025-04-02", 5))
+
+    conn.commit()
+    conn.close()
+
+# ----------------- Rotas -----------------
+
+@app.route('/')
+def index():
+    return jsonify({"mensagem": "API de Produtividade pronta! Use /setores ou /tarefas para acessar os dados."})
+
+@app.route('/setores', methods=['GET'])
+def get_setores():
+    conn = sqlite3.connect('produtividade.db')
+    cursor = conn.cursor()
+    cursor.execute('SELECT id, nome FROM setores')
+    setores = cursor.fetchall()
+    conn.close()
+
+    # Retorna os setores como um JSON
+    return jsonify({"setores": [{"id": setor[0], "nome": setor[1]} for setor in setores]})
+
+@app.route('/tarefas', methods=['GET'])
+def get_tarefas():
+    conn = sqlite3.connect('produtividade.db')
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT setores.nome, funcionarios.nome, tarefas.nome, tarefas.data, tarefas.tempo_gasto
+        FROM tarefas
+        JOIN funcionarios ON tarefas.funcionario_id = funcionarios.id
+        JOIN setores ON funcionarios.setor_id = setores.id
+    ''')
+    tarefas = cursor.fetchall()
+    conn.close()
+
+    tarefas_dados = [
+        {
+            "setor": tarefa[0],
+            "funcionario": tarefa[1],
+            "tarefa": tarefa[2],
+            "data": tarefa[3],
+            "tempo_gasto": tarefa[4]
+        }
+        for tarefa in tarefas
+    ]
+
+    return jsonify({"tarefas": tarefas_dados})
+
+# ----------------- Execução -----------------
+
+if __name__ == '__main__':
+    init_db()  # Inicializa o banco de dados com dados fictícios
+    app.run(debug=True, host="0.0.0.0", port=3000)  # Configuração para rodar no Replit
