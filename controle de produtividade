@@ -1,23 +1,19 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 import sqlite3
 
 app = Flask(__name__)
-
-# ----------------- Banco de Dados -----------------
 
 def init_db():
     conn = sqlite3.connect('produtividade.db')
     cursor = conn.cursor()
 
-    # Criando a tabela de setores
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS setores (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            nome TEXT NOT NULL
+            nome TEXT NOT NULL UNIQUE
         )
     ''')
 
-    # Criando a tabela de funcionários
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS funcionarios (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -28,7 +24,6 @@ def init_db():
         )
     ''')
 
-    # Criando a tabela de tarefas
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tarefas (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -40,73 +35,108 @@ def init_db():
         )
     ''')
 
-    # Inserindo dados fictícios de setores
-    cursor.execute('INSERT INTO setores (nome) VALUES (?)', ("Financeiro",))
-    cursor.execute('INSERT INTO setores (nome) VALUES (?)', ("TI",))
-    cursor.execute('INSERT INTO setores (nome) VALUES (?)', ("Recursos Humanos",))
+    cursor.execute('SELECT COUNT(*) FROM setores')
+    if cursor.fetchone()[0] == 0:
+        setores = [("Financeiro",), ("TI",), ("Recursos Humanos",)]
+        cursor.executemany('INSERT INTO setores (nome) VALUES (?)', setores)
 
-    # Inserindo dados fictícios de funcionários
-    cursor.execute('INSERT INTO funcionarios (nome, setor_id, cargo) VALUES (?, ?, ?)', ("João Silva", 1, "Analista Financeiro"))
-    cursor.execute('INSERT INTO funcionarios (nome, setor_id, cargo) VALUES (?, ?, ?)', ("Maria Souza", 2, "Desenvolvedora Backend"))
-    cursor.execute('INSERT INTO funcionarios (nome, setor_id, cargo) VALUES (?, ?, ?)', ("Carlos Pereira", 3, "Recrutador"))
-    cursor.execute('INSERT INTO funcionarios (nome, setor_id, cargo) VALUES (?, ?, ?)', ("Ana Lima", 1, "Assistente Administrativo"))
-    cursor.execute('INSERT INTO funcionarios (nome, setor_id, cargo) VALUES (?, ?, ?)', ("Roberto Costa", 2, "Desenvolvedor Frontend"))
+    cursor.execute('SELECT COUNT(*) FROM funcionarios')
+    if cursor.fetchone()[0] == 0:
+        funcionarios = [
+            ("João Silva", 1, "Analista Financeiro"),
+            ("Maria Souza", 2, "Desenvolvedora Backend"),
+            ("Carlos Pereira", 3, "Recrutador"),
+            ("Ana Lima", 1, "Assistente Administrativo"),
+            ("Roberto Costa", 2, "Desenvolvedor Frontend"),
+        ]
+        cursor.executemany('INSERT INTO funcionarios (nome, setor_id, cargo) VALUES (?, ?, ?)', funcionarios)
 
-    # Inserindo dados fictícios de tarefas
-    cursor.execute('INSERT INTO tarefas (funcionario_id, nome, data, tempo_gasto) VALUES (?, ?, ?, ?)', (1, "Análise de relatórios financeiros", "2025-04-01", 4))
-    cursor.execute('INSERT INTO tarefas (funcionario_id, nome, data, tempo_gasto) VALUES (?, ?, ?, ?)', (2, "Desenvolvimento de API", "2025-04-02", 6))
-    cursor.execute('INSERT INTO tarefas (funcionario_id, nome, data, tempo_gasto) VALUES (?, ?, ?, ?)', (3, "Entrevista com candidato", "2025-04-03", 2))
-    cursor.execute('INSERT INTO tarefas (funcionario_id, nome, data, tempo_gasto) VALUES (?, ?, ?, ?)', (4, "Organização de documentos", "2025-04-01", 3))
-    cursor.execute('INSERT INTO tarefas (funcionario_id, nome, data, tempo_gasto) VALUES (?, ?, ?, ?)', (5, "Desenvolvimento da interface do sistema", "2025-04-02", 5))
+    cursor.execute('SELECT COUNT(*) FROM tarefas')
+    if cursor.fetchone()[0] == 0:
+        tarefas = [
+            (1, "Análise de relatórios financeiros", "2025-04-01", 4),
+            (2, "Desenvolvimento de API", "2025-04-02", 6),
+            (3, "Entrevista com candidato", "2025-04-03", 2),
+            (4, "Organização de documentos", "2025-04-01", 3),
+            (5, "Desenvolvimento da interface do sistema", "2025-04-02", 5),
+        ]
+        cursor.executemany('INSERT INTO tarefas (funcionario_id, nome, data, tempo_gasto) VALUES (?, ?, ?, ?)', tarefas)
 
     conn.commit()
     conn.close()
 
-# ----------------- Rotas -----------------
+def conectar_db():
+    conn = sqlite3.connect('produtividade.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
 @app.route('/')
 def index():
-    return jsonify({"mensagem": "API de Produtividade pronta! Use /setores ou /tarefas para acessar os dados."})
+    return jsonify({"mensagem": "API de Produtividade pronta! Use /setores, /tarefas ou /relatorio para acessar."})
 
 @app.route('/setores', methods=['GET'])
 def get_setores():
-    conn = sqlite3.connect('produtividade.db')
-    cursor = conn.cursor()
-    cursor.execute('SELECT id, nome FROM setores')
-    setores = cursor.fetchall()
+    conn = conectar_db()
+    setores = conn.execute('SELECT id, nome FROM setores ORDER BY nome').fetchall()
     conn.close()
-
-    # Retorna os setores como um JSON
-    return jsonify({"setores": [{"id": setor[0], "nome": setor[1]} for setor in setores]})
+    return jsonify({"setores": [{"id": s["id"], "nome": s["nome"]} for s in setores]})
 
 @app.route('/tarefas', methods=['GET'])
 def get_tarefas():
-    conn = sqlite3.connect('produtividade.db')
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT setores.nome, funcionarios.nome, tarefas.nome, tarefas.data, tarefas.tempo_gasto
+    setor_id = request.args.get('setor_id')
+    data = request.args.get('data')
+
+    conn = conectar_db()
+    query = '''
+        SELECT setores.nome AS setor, funcionarios.nome AS funcionario, tarefas.nome AS tarefa, tarefas.data, tarefas.tempo_gasto
         FROM tarefas
         JOIN funcionarios ON tarefas.funcionario_id = funcionarios.id
         JOIN setores ON funcionarios.setor_id = setores.id
-    ''')
-    tarefas = cursor.fetchall()
+    '''
+    params = []
+    conditions = []
+
+    if setor_id:
+        conditions.append('setores.id = ?')
+        params.append(setor_id)
+    if data:
+        conditions.append('tarefas.data = ?')
+        params.append(data)
+    if conditions:
+        query += ' WHERE ' + ' AND '.join(conditions)
+
+    query += ' ORDER BY tarefas.data DESC'
+
+    tarefas = conn.execute(query, params).fetchall()
     conn.close()
 
-    tarefas_dados = [
-        {
-            "setor": tarefa[0],
-            "funcionario": tarefa[1],
-            "tarefa": tarefa[2],
-            "data": tarefa[3],
-            "tempo_gasto": tarefa[4]
-        }
-        for tarefa in tarefas
-    ]
+    tarefas_lista = []
+    for t in tarefas:
+        tarefas_lista.append({
+            "setor": t["setor"],
+            "funcionario": t["funcionario"],
+            "tarefa": t["tarefa"],
+            "data": t["data"],
+            "tempo_gasto": t["tempo_gasto"]
+        })
 
-    return jsonify({"tarefas": tarefas_dados})
+    return jsonify({"tarefas": tarefas_lista})
 
-# ----------------- Execução -----------------
+@app.route('/relatorio', methods=['GET'])
+def relatorio():
+    conn = conectar_db()
+    relatorio = conn.execute('''
+        SELECT funcionarios.nome AS funcionario, SUM(tarefas.tempo_gasto) AS total_tempo
+        FROM tarefas
+        JOIN funcionarios ON tarefas.funcionario_id = funcionarios.id
+        GROUP BY funcionarios.nome
+        ORDER BY total_tempo DESC
+    ''').fetchall()
+    conn.close()
+
+    rel = [{"funcionario": r["funcionario"], "total_tempo": r["total_tempo"]} for r in relatorio]
+    return jsonify({"relatorio": rel})
 
 if __name__ == '__main__':
-    init_db()  # Inicializa o banco de dados com dados fictícios
-    app.run(debug=True, host="0.0.0.0", port=3000)  # Configuração para rodar no Replit
+    init_db()
+    app.run(debug=True, host="0.0.0.0", port=3000)
