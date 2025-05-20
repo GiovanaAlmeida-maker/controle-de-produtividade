@@ -1,10 +1,41 @@
-# controle-de-produtividade
-Pense em um sistema de controle de produtividade para saber como os setores e funcionários de uma empresa estão se saindo em relação ao tempo gasto em suas tarefas. Imagine que, em uma empresa, diferentes setores (como financeiro, tecnologia, recrutamento, etc.) têm equipes de funcionários que fazem diferentes tipos de tarefas todos os dias.
+# API de Produtividade de Funcionários com Flask
 
-Este código permite que a empresa monitore e acompanhe o tempo que seus funcionários gastam em suas tarefas, como se fosse um relatório de desempenho. Isso pode ser útil para:
+Este projeto é uma API simples criada com **Python** e **Flask**, que simula um sistema de **monitoramento de produtividade de funcionários**. Ele armazena dados de setores, funcionários e tarefas, e permite consultar essas informações via rotas HTTP no formato JSON.
 
-Saber em qual setor o trabalho está fluindo mais rápido.
+---
 
-Verificar se algum funcionário está sobrecarregado ou demorando mais do que o esperado para realizar suas tarefas.
+## ⚙️ Funcionalidades
 
-Ajudar os gestores a tomar decisões sobre como melhorar a produtividade da equipe, alocando mais recursos ou reorganizando o trabalho, por exemplo.
+- **Setores**
+  - Lista todos os setores cadastrados.
+
+- **Funcionários**
+  - Os funcionários estão associados a setores e possuem cargos específicos.
+  - Dados são inseridos automaticamente ao iniciar o sistema.
+
+- **Tarefas**
+  - Cada tarefa está vinculada a um funcionário e contém:
+    - Nome da tarefa
+    - Data de execução
+    - Tempo gasto (em horas)
+  - Consulta de tarefas traz também o nome do setor e do funcionário.
+
+---
+
+## 🧱 Estrutura do Banco de Dados (SQLite)
+
+O banco de dados `produtividade.db` é criado automaticamente com as seguintes tabelas:
+
+- `setores (id, nome)`
+- `funcionarios (id, nome, setor_id, cargo)`
+- `tarefas (id, funcionario_id, nome, data, tempo_gasto)`
+
+Com dados fictícios já inseridos para teste.
+
+---
+
+## ▶️ Como Executar
+
+1. Instale o Flask:
+   ```bash
+   pip install flask
