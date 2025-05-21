@@ -4,7 +4,7 @@ Este projeto é uma API simples criada com **Python** e **Flask**, que simula um
 
 ---
 
-## ⚙️ Funcionalidades
+## Funcionalidades
 
 - **Setores**
   - Lista todos os setores cadastrados.
@@ -22,7 +22,7 @@ Este projeto é uma API simples criada com **Python** e **Flask**, que simula um
 
 ---
 
-## 🧱 Estrutura do Banco de Dados (SQLite)
+## Estrutura do Banco de Dados (SQLite)
 
 O banco de dados `produtividade.db` é criado automaticamente com as seguintes tabelas:
 
@@ -34,7 +34,7 @@ Com dados fictícios já inseridos para teste.
 
 ---
 
-## ▶️ Como Executar
+## Como Executar
 
 1. Instale o Flask:
    ```bash
